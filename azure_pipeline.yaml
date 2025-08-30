@@ -1,0 +1,50 @@
+trigger:
+  branches:
+    include:
+      - main
+      - Master
+    exclude:
+      - feature/*
+
+stages:
+- stage: TerraformInit
+  displayName: "Terraform Init"
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - job: InitJob
+    displayName: "Terraform Initializing"
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: 'latest'
+    - script: terraform init
+      displayName: "Run terraform init"
+
+- stage: TerraformPlan
+  displayName: "Terraform Plan"
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - job: PlanJob
+    displayName: "Terraform Planning"
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: 'latest'
+    - script: terraform plan
+      displayName: "Run terraform plan"
+
+- stage: TerraformApply
+  displayName: "Terraform Apply"
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - job: ApplyJob
+    displayName: "Terraform Applying"
+    steps:
+    - task: TerraformInstaller@0
+      inputs:
+        terraformVersion: 'latest'
+    - script: terraform apply -input=false -auto-approve
+      displayName: "Run terraform apply"
