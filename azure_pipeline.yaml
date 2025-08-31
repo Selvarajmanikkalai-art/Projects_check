@@ -9,24 +9,32 @@ trigger:
 variables:
   terraformVersion: 'latest'
   vmImageName: 'ubuntu-latest'
-  
-  
+  # Define these securely in pipeline → Variables (mark secrets)
+  # AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+  # AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+  # AWS_DEFAULT_REGION: us-east-1
 
 stages:
+# -----------------------
+# Stage 1: Terraform Init
+# -----------------------
 - stage: TerraformInit
   displayName: "Terraform Init"
   pool:
     vmImage: $(vmImageName)
   jobs:
   - job: InitJob
-    displayName: "Terraform Initializing"
     steps:
+    - checkout: self
     - task: TerraformInstaller@0
       inputs:
         terraformVersion: $(terraformVersion)
-    - script: terraform init
-      displayName: "Run terraform init"
+    - script: terraform init -input=false
+      displayName: "Terraform Init"
 
+# -----------------------
+# Stage 2: Terraform Plan
+# -----------------------
 - stage: TerraformPlan
   displayName: "Terraform Plan"
   dependsOn: TerraformInit
@@ -34,25 +42,39 @@ stages:
     vmImage: $(vmImageName)
   jobs:
   - job: PlanJob
-    displayName: "Terraform Planning"
     steps:
+    - checkout: self
     - task: TerraformInstaller@0
       inputs:
         terraformVersion: $(terraformVersion)
-    - script: terraform plan -out=tfplan
-      displayName: "Run terraform plan"
+    - script: terraform init -input=false
+      displayName: "Terraform Init (Plan stage)"
+    - script: terraform validate
+      displayName: "Terraform Validate"
+    - script: terraform plan -input=false -out=tfplan
+      displayName: "Terraform Plan"
+    - publish: tfplan
+      artifact: terraform-plan
 
+# -----------------------
+# Stage 3: Terraform Apply
+# -----------------------
 - stage: TerraformApply
   displayName: "Terraform Apply"
   dependsOn: TerraformPlan
+  condition: succeeded()
   pool:
     vmImage: $(vmImageName)
   jobs:
   - job: ApplyJob
-    displayName: "Terraform Applying"
     steps:
+    - checkout: self
     - task: TerraformInstaller@0
       inputs:
         terraformVersion: $(terraformVersion)
+    - script: terraform init -input=false
+      displayName: "Terraform Init (Apply stage)"
+    - download: current
+      artifact: terraform-plan
     - script: terraform apply -input=false -auto-approve tfplan
-      displayName: "Run terraform apply"
+      displayName: "Terraform Apply"
